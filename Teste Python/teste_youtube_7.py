@@ -108,8 +108,7 @@ async def main():
                 texto_completo = " ".join(
                     item["texto"]
                     for item in legendas
-                )
-                
+                )                
 
                 print("\nPrimeiros 1000 caracteres:")
                 print(texto_completo[:1000])
