@@ -5,6 +5,7 @@ from playwright.async_api import async_playwright
 
 VIDEO_URL = "https://www.youtube.com/watch?v=bPntels5hw8"
 
+legendas = []
 
 def extrair_transcricao(json_data):
     resultado = []
@@ -43,9 +44,10 @@ def extrair_transcricao(json_data):
                         ""
                     ).strip()
 
-                    resultado.append(
-                        (timestamp, texto)
-                    )
+                    resultado.append({
+                        "timestamp": timestamp,
+                        "texto": texto
+                    })
 
     except Exception as e:
         print("Erro ao extrair:", e)
@@ -100,13 +102,14 @@ async def main():
 
                 print(f"\nSegmentos encontrados: {len(legendas)}")
 
-                for timestamp, texto in legendas[:10]:
+                for timestamp, texto in [(item["timestamp"], item["texto"]) for item in legendas[:10]]:
                     print(f"[{timestamp}] {texto}")
 
                 texto_completo = " ".join(
                     item["texto"]
                     for item in legendas
                 )
+                
 
                 print("\nPrimeiros 1000 caracteres:")
                 print(texto_completo[:1000])
