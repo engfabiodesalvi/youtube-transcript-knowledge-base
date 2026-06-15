@@ -1,4 +1,4 @@
-# YouTube Transcript Extractor
+# YouTube Transcript Extractor with Playwright and BeautifulSoup
 
 Extrator de transcrições do YouTube desenvolvido em Python utilizando Playwright, BeautifulSoup e Expressões Regulares.
 
