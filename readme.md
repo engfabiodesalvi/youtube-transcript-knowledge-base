@@ -486,6 +486,229 @@ Benefícios:
 
 ---
 
+# Evolução da Arquitetura
+
+Durante o desenvolvimento foram identificadas diferentes formas de obter as transcrições dos vídeos do YouTube.
+
+## Abordagem 1 - Endpoint get_panel
+
+O YouTube disponibilava a transcrição através do endpoint:
+
+```text
+youtubei/v1/get_panel
+```
+
+A captura era realizada através de:
+
+```python
+async with page.expect_response(
+    lambda r:
+    "youtubei/v1/get_panel" in r.url
+)
+```
+
+### Vantagens
+
+* Estrutura JSON organizada.
+* Fácil extração dos timestamps.
+* Baixa necessidade de processamento.
+
+### Desvantagens
+
+* Nem todos os vídeos utilizam este endpoint.
+* O comportamento varia conforme o idioma da interface.
+* Alterações frequentes do YouTube podem quebrar a implementação.
+
+---
+
+## Abordagem 2 - Endpoint get_transcript
+
+Em alguns vídeos o YouTube passou a utilizar:
+
+```text
+youtubei/v1/get_transcript
+```
+
+Estrutura identificada:
+
+```json
+{
+  "transcriptSegmentRenderer": {
+    "startTimeText": {
+      "simpleText": "0:05"
+    },
+    "snippet": {
+      "runs": [
+        {
+          "text": "so far you have learned..."
+        }
+      ]
+    }
+  }
+}
+```
+
+### Problemas encontrados
+
+Nem sempre a resposta retornava a transcrição.
+
+Em diversos casos foi retornado:
+
+```json
+{
+  "error": {
+    "code": 400,
+    "status": "FAILED_PRECONDITION"
+  }
+}
+```
+
+Também foram observadas diferenças de comportamento entre:
+
+* vídeos listados;
+* vídeos individuais;
+* idioma do navegador;
+* idioma da conta do YouTube.
+
+---
+
+## Abordagem 3 - Extração Direta do HTML
+
+Após diversas alterações internas do YouTube, foi adotada uma abordagem mais robusta:
+
+1. Abrir a transcrição.
+2. Capturar o HTML do painel.
+3. Extrair os segmentos diretamente do DOM.
+
+Esta abordagem não depende dos endpoints internos do YouTube.
+
+---
+
+# Estrutura HTML Identificada
+
+Foi identificado o seguinte padrão:
+
+```html
+<transcript-segment-view-model>
+
+    <div
+        class="ytwTranscriptSegmentViewModelTimestamp">
+        0:04
+    </div>
+
+    <span role="text">
+        They say PHP is dead...
+    </span>
+
+</transcript-segment-view-model>
+```
+
+Onde:
+
+| Elemento                               | Função           |
+| -------------------------------------- | ---------------- |
+| ytwTranscriptSegmentViewModelTimestamp | Timestamp        |
+| span[role="text"]                      | Texto da legenda |
+
+---
+
+# Extração com BeautifulSoup
+
+Instalação:
+
+```bash
+pip install beautifulsoup4 lxml
+```
+
+Processamento:
+
+```python
+segmentos = soup.find_all(
+    "transcript-segment-view-model"
+)
+```
+
+Extração:
+
+```python
+timestamp = segmento.find(
+    "div",
+    class_="ytwTranscriptSegmentViewModelTimestamp"
+)
+
+texto = segmento.find(
+    "span",
+    role="text"
+)
+```
+
+---
+
+# Normalização do Texto
+
+Durante os testes foi identificado que o HTML contém:
+
+* quebras de linha;
+* espaços de indentação;
+* tabulações.
+
+Exemplo bruto:
+
+```text
+PHP is still very much alive,
+                                    and learning it...
+```
+
+Para normalização foi utilizada:
+
+```python
+texto_limpo = " ".join(
+    texto.get_text().split()
+)
+```
+
+Resultado:
+
+```text
+PHP is still very much alive, and learning it...
+```
+
+### Benefícios
+
+Remove automaticamente:
+
+* múltiplos espaços;
+* quebras de linha;
+* tabulações;
+* caracteres de espaçamento redundantes.
+
+---
+
+# Comparação das Abordagens
+
+| Método               | Estabilidade | Complexidade | Dependência Interna |
+| -------------------- | ------------ | ------------ | ------------------- |
+| get_panel            | Média        | Média        | Alta                |
+| get_transcript       | Baixa        | Alta         | Alta                |
+| HTML + BeautifulSoup | Alta         | Baixa        | Baixa               |
+
+---
+
+# Lições Aprendidas
+
+Durante o desenvolvimento foram observados os seguintes comportamentos do YouTube:
+
+* Alteração frequente dos endpoints internos.
+* Mudança do endpoint utilizado dependendo do vídeo.
+* Diferenças entre vídeos listados e não listados.
+* Diferenças causadas pelo idioma do navegador.
+* Possível interferência de anúncios.
+* Possível interferência de mecanismos anti-automação.
+
+Por esse motivo, a estratégia baseada em extração do HTML da transcrição apresentou maior robustez e menor dependência de mudanças internas da plataforma.
+
+---
+
 # Possíveis Evoluções Futuras
 
 * Exportação para Markdown.
