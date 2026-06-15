@@ -1,535 +1,191 @@
-<!-- Segue um README.md completo para o GitHub documentando as duas versões (`teste_youtube_10.py` e `teste_youtube_11.py`), destacando arquitetura, fluxo, desempenho e funções utilizadas.-->
+# YouTube Transcript Extractor
 
-# Extrator de Transcrições do YouTube com Playwright
+Extrator de transcrições do YouTube desenvolvido em Python utilizando Playwright, BeautifulSoup e Expressões Regulares.
 
-## Visão Geral
+O objetivo deste projeto é automatizar a obtenção de legendas/transcrições de vídeos do YouTube para posterior utilização em:
 
-Este projeto automatiza a obtenção de transcrições (legendas) de vídeos do YouTube utilizando Python e Playwright.
+* Estudos e cursos online
+* Geração de documentação
+* Construção de bases de conhecimento
+* Sistemas RAG (Retrieval Augmented Generation)
+* Fine-tuning de modelos de IA
+* Indexação semântica
+* Pesquisa textual
+* Conversão de conteúdo audiovisual para texto estruturado
 
-Diferentemente de soluções que dependem de APIs externas ou bibliotecas de terceiros específicas para transcrição, esta implementação utiliza o próprio mecanismo interno do YouTube acessado pelo navegador, garantindo maior compatibilidade com vídeos públicos que possuem transcrição disponível.
+---
 
-O processo é realizado automaticamente através da navegação na página do vídeo, abertura da área de descrição, acionamento da opção **"Mostrar transcrição"** e captura da resposta JSON enviada pelo endpoint interno do YouTube.
+# Visão Geral
+
+Durante o desenvolvimento foram estudadas diversas formas de obter transcrições diretamente do YouTube.
+
+Inicialmente foram utilizadas chamadas internas realizadas pelo próprio site. Com o avanço dos testes observou-se que o YouTube altera frequentemente sua arquitetura interna, exigindo a implementação de abordagens alternativas.
+
+Atualmente o projeto documenta quatro estratégias distintas de obtenção das transcrições:
+
+1. Captura do endpoint `get_panel`
+2. Captura do endpoint `get_transcript`
+3. Extração do HTML utilizando BeautifulSoup
+4. Extração do HTML utilizando Expressões Regulares (Regex)
 
 ---
 
 # Tecnologias Utilizadas
 
+## Navegação Automatizada
+
 * Python 3.10+
 * Playwright
+* Chromium
+
+## Processamento
+
 * AsyncIO
 * JSON
-* Pathlib
 * GZIP
+* Pathlib
+
+## Parsing HTML
+
+* BeautifulSoup4
+* html.parser
+
+## Expressões Regulares
+
+* re
 
 ---
 
-# Estrutura dos Dados
+# Estrutura do Projeto
 
-Cada vídeo é definido como:
-
-```python
-(
-    "Tópico",
-    "Subtópico",
-    "URL"
-)
+```text
+Projeto
+│
+├── teste_youtube_10.py
+├── teste_youtube_11.py
+├── teste_youtube_12.py
+│
+├── elemento_transcricao_1.html
+│
+├── transcricoes.json
+├── transcricao_1_1.json
+├── transcricao_2_1.json
+│
+└── lista_videos.py
 ```
+
+---
+
+# Estrutura dos Vídeos
+
+Os vídeos são organizados por curso, tópico e subtópico.
 
 Exemplo:
 
 ```python
-(
-    "Topico",
-    "Subtopico",
-    "URL Video Youtube"
-)
+videos = [
+    {
+        "curso": "Curso PHP",
+        "topicos": [
+            {
+                "topico": "Variáveis",
+                "subtopicos": [
+                    {
+                        "nome": "O que são variáveis",
+                        "video_url": "https://youtube..."
+                    }
+                ]
+            }
+        ]
+    }
+]
 ```
 
 ---
 
-# Fluxo Geral da Aplicação
+# Estratégia 1 - Endpoint get_panel
 
-## 1. Inicialização
+## Funcionamento
 
-O navegador Chromium é iniciado via Playwright:
-
-```python
-browser = await p.chromium.launch(
-    headless=True
-)
-```
-
-O modo Headless permite executar todo o processo sem abrir janelas gráficas.
-
----
-
-## 2. Acesso ao Vídeo
-
-Cada URL é carregada:
-
-```python
-await page.goto(
-    url,
-    wait_until="domcontentloaded"
-)
-```
-
-ou
-
-```python
-await page.goto(
-    url,
-    wait_until="networkidle"
-)
-```
-
-dependendo da versão utilizada.
-
----
-
-## 3. Expansão da Descrição
-
-O botão "...mais" é localizado e clicado:
-
-```python
-await page.locator(
-    "tp-yt-paper-button#expand"
-).filter(
-    has_text="...mais"
-).first.click()
-```
-
-Esta etapa é necessária para tornar visível o botão de transcrição.
-
----
-
-## 4. Abertura da Transcrição
-
-O botão "Mostrar transcrição" é localizado:
-
-```python
-button[aria-label="Mostrar transcrição"]
-```
-
-e acionado automaticamente.
-
----
-
-## 5. Captura da Resposta JSON
-
-Ao abrir a transcrição, o YouTube faz uma chamada para:
+Após abrir a área de transcrição, o YouTube realiza uma requisição para:
 
 ```text
 youtubei/v1/get_panel
 ```
 
-Esta resposta contém todos os segmentos da legenda.
-
----
-
-## 6. Extração da Transcrição
-
-Os dados são extraídos da estrutura:
-
-```text
-content
- └─ engagementPanelSectionListRenderer
-     └─ content
-         └─ sectionListRenderer
-             └─ contents
-```
-
-Cada segmento contém:
-
-```json
-{
-    "timestamp": "0:00",
-    "simpleText": "Texto da legenda"
-}
-```
-
----
-
-## 7. Geração do Arquivo JSON
-
-O resultado final é salvo em:
-
-```text
-transcricoes.json
-```
-
-na mesma pasta do script.
-
----
-
-# Estrutura do Arquivo Gerado
-
-```json
-{
-  "curso": "Curso Tipos de Variaveis em PHP",
-  "videos": [
-    {
-      "topico": "...",
-      "subtopico": "...",
-      "url": "...",
-      "transcricao": [
-        {
-          "timestamp": "0:00",
-          "texto": "Olá pessoal..."
-        }
-      ]
-    }
-  ]
-}
-```
-
----
-
-# Funções Principais
-
-## extrair_transcricao()
-
-Responsável por percorrer a estrutura JSON retornada pelo YouTube.
-
-### Entrada
-
-```python
-json_data
-```
-
-### Saída
-
-```python
-[
-    {
-        "timestamp": "0:00",
-        "texto": "Olá pessoal..."
-    }
-]
-```
-
-### Responsabilidades
-
-* Navegar pela estrutura JSON.
-* Localizar segmentos da legenda.
-* Extrair timestamp.
-* Extrair texto.
-* Montar estrutura padronizada.
-
----
-
-## processar_video()
-
-Responsável por processar um único vídeo.
-
-### Etapas
-
-1. Abrir vídeo.
-2. Expandir descrição.
-3. Abrir transcrição.
-4. Capturar JSON.
-5. Extrair segmentos.
-6. Retornar legenda.
-
-### Retorno
-
-```python
-[
-    {
-        "timestamp": "...",
-        "texto": "..."
-    }
-]
-```
-
-ou
-
-```python
-None
-```
-
-quando não existir transcrição.
-
----
-
-# Versão 10 (teste_youtube_10.py)
-
-## Arquitetura
-
-Baseada em monitoramento global de respostas da página.
-
-Utiliza:
-
-```python
-page.on(
-    "response",
-    capturar_response
-)
-```
-
-Sempre que uma resposta é recebida pelo navegador, ela é analisada.
+Essa resposta contém toda a legenda em formato JSON.
 
 ---
 
 ## Fluxo
 
 ```text
-Vídeo
- ↓
-Abrir transcrição
- ↓
-Evento Response
- ↓
-Capturar JSON
- ↓
-Salvar em variável global
- ↓
-Processar
+Abrir vídeo
+    ↓
+Expandir descrição
+    ↓
+Mostrar transcrição
+    ↓
+Interceptar get_panel
+    ↓
+Extrair JSON
+    ↓
+Gerar transcrição
 ```
 
 ---
 
-## Vantagens
+## Captura da Resposta
 
-* Simples de implementar.
-* Fácil depuração.
-* Permite monitorar qualquer requisição.
-
----
-
-## Desvantagens
-
-* Captura respostas desnecessárias.
-* Depende de variável compartilhada.
-* Necessita sincronização adicional.
-* Pode sofrer condições de corrida.
-
----
-
-# Versão 11 (teste_youtube_11.py)
-
-## Arquitetura
-
-Baseada em captura direta da resposta esperada.
-
-Utiliza:
-
-```python
-async with page.expect_response(...)
-```
-
----
-
-## Fluxo
-
-```text
-Aguardar resposta específica
- ↓
-Clicar em transcrição
- ↓
-Receber JSON
- ↓
-Extrair dados
- ↓
-Retornar resultado
-```
-
----
-
-## Exemplo
+Utilizando:
 
 ```python
 async with page.expect_response(
     lambda r:
     "youtubei/v1/get_panel" in r.url
 ) as response_info:
-
-    await botao_transcricao.click()
 ```
 
 ---
 
-# Melhorias de Desempenho da Versão 11
+## Estrutura Encontrada
 
-## Remoção do Listener Global
-
-Versão 10:
-
-```python
-page.on("response")
+```json
+{
+  "timestamp": "0:00",
+  "simpleText": "Texto da legenda"
+}
 ```
-
-Versão 11:
-
-```python
-page.expect_response()
-```
-
-Resultado:
-
-* Menor consumo de memória.
-* Menor processamento.
-* Menos eventos analisados.
 
 ---
 
-## Eliminação de Esperas Ativas
+## Vantagens
 
-Versão 10:
-
-```python
-for _ in range(5):
-    await asyncio.sleep(0.2)
-```
-
-Versão 11:
-
-Não necessita espera.
-
-Resultado:
-
-* Menor latência.
-* Código mais previsível.
+* Estrutura organizada.
+* Fácil processamento.
+* Menor necessidade de parsing.
 
 ---
 
-## Retorno Direto
-
-Versão 10:
-
-```python
-transcricao_atual
-```
-
-Versão 11:
-
-```python
-return legendas
-```
-
-Resultado:
-
-* Menor acoplamento.
-* Menor complexidade.
-
----
-
-## Troca de networkidle por domcontentloaded
-
-Versão 10:
-
-```python
-wait_until="networkidle"
-```
-
-Versão 11:
-
-```python
-wait_until="domcontentloaded"
-```
-
-Benefícios:
-
-* Carregamento mais rápido.
-* Menor tempo por vídeo.
-* Menor espera por conexões secundárias.
-
----
-
-# Tratamento de Compressão
-
-Algumas respostas chegam comprimidas.
-
-O código identifica:
-
-```python
-content-encoding
-```
-
-e realiza:
-
-```python
-gzip.decompress()
-```
-
-quando necessário.
-
----
-
-# Tratamento de Erros
-
-O projeto trata:
-
-* Vídeos sem transcrição.
-* Erros de navegação.
-* JSON inválido.
-* Falhas de localização de elementos.
-* Compressão incorreta.
-* Timeouts.
-
----
-
-# Modo Headless
-
-O navegador pode executar sem interface gráfica:
-
-```python
-headless=True
-```
-
-Benefícios:
-
-* Menor consumo de memória.
-* Maior velocidade.
-* Execução em servidores.
-* Processamento em lote.
-
----
-
-# Evolução da Arquitetura
-
-Durante o desenvolvimento foram identificadas diferentes formas de obter as transcrições dos vídeos do YouTube.
-
-## Abordagem 1 - Endpoint get_panel
-
-O YouTube disponibilava a transcrição através do endpoint:
-
-```text
-youtubei/v1/get_panel
-```
-
-A captura era realizada através de:
-
-```python
-async with page.expect_response(
-    lambda r:
-    "youtubei/v1/get_panel" in r.url
-)
-```
-
-### Vantagens
-
-* Estrutura JSON organizada.
-* Fácil extração dos timestamps.
-* Baixa necessidade de processamento.
-
-### Desvantagens
+## Limitações
 
 * Nem todos os vídeos utilizam este endpoint.
-* O comportamento varia conforme o idioma da interface.
-* Alterações frequentes do YouTube podem quebrar a implementação.
+* Mudanças internas do YouTube podem quebrar o fluxo.
+* Dependência da interface atual da plataforma.
 
 ---
 
-## Abordagem 2 - Endpoint get_transcript
+# Estratégia 2 - Endpoint get_transcript
 
-Em alguns vídeos o YouTube passou a utilizar:
+Durante os testes foi identificado outro endpoint:
 
 ```text
 youtubei/v1/get_transcript
 ```
 
-Estrutura identificada:
+---
+
+## Estrutura Identificada
 
 ```json
 {
@@ -540,7 +196,7 @@ Estrutura identificada:
     "snippet": {
       "runs": [
         {
-          "text": "so far you have learned..."
+          "text": "Texto da legenda"
         }
       ]
     }
@@ -548,11 +204,11 @@ Estrutura identificada:
 }
 ```
 
-### Problemas encontrados
+---
 
-Nem sempre a resposta retornava a transcrição.
+## Problemas Encontrados
 
-Em diversos casos foi retornado:
+Em muitos vídeos foi retornado:
 
 ```json
 {
@@ -563,30 +219,136 @@ Em diversos casos foi retornado:
 }
 ```
 
-Também foram observadas diferenças de comportamento entre:
+---
 
-* vídeos listados;
-* vídeos individuais;
-* idioma do navegador;
-* idioma da conta do YouTube.
+## Possíveis Causas
+
+* Mudanças na API interna.
+* Vídeos privados.
+* Vídeos listados.
+* Diferenças de idioma.
+* Restrições regionais.
+* Validações internas do YouTube.
 
 ---
 
-## Abordagem 3 - Extração Direta do HTML
+# Estratégia 3 - HTML + BeautifulSoup
 
-Após diversas alterações internas do YouTube, foi adotada uma abordagem mais robusta:
+Após diversas alterações observadas no YouTube, foi implementada uma solução baseada diretamente no HTML da transcrição.
 
-1. Abrir a transcrição.
-2. Capturar o HTML do painel.
-3. Extrair os segmentos diretamente do DOM.
-
-Esta abordagem não depende dos endpoints internos do YouTube.
+Nesta abordagem o usuário abre manualmente a transcrição e copia o HTML.
 
 ---
 
-# Estrutura HTML Identificada
+## Estrutura HTML Identificada
 
-Foi identificado o seguinte padrão:
+```html
+<ytd-transcript-segment-renderer>
+
+    <div class="segment-timestamp">
+        0:04
+    </div>
+
+    <yt-formatted-string class="segment-text">
+        Texto da legenda
+    </yt-formatted-string>
+
+</ytd-transcript-segment-renderer>
+```
+
+---
+
+## Extração
+
+```python
+segmentos = soup.select(
+    "ytd-transcript-segment-renderer"
+)
+```
+
+---
+
+### Timestamp
+
+```python
+.segment-timestamp
+```
+
+### Texto
+
+```python
+.segment-text
+```
+
+---
+
+## Vantagens
+
+* Não depende dos endpoints internos.
+* Maior estabilidade.
+* Fácil manutenção.
+* Compatível com diferentes idiomas.
+
+---
+
+## Desvantagens
+
+* Requer obtenção manual do HTML.
+* Depende da estrutura visual da página.
+
+---
+
+# Estratégia 4 - HTML + Regex
+
+Implementação focada em simplicidade e velocidade.
+
+---
+
+## Padrão Utilizado
+
+```python
+padrao = re.compile(
+    r'<div class="segment-timestamp.*?">\s*(.*?)\s*</div>.*?<yt-formatted-string class="segment-text.*?">(.*?)</yt-formatted-string>',
+    re.S
+)
+```
+
+---
+
+## Limpeza do Texto
+
+```python
+texto = re.sub(
+    r"<.*?>",
+    "",
+    texto
+)
+```
+
+---
+
+## Vantagens
+
+* Extremamente rápida.
+* Sem dependências externas.
+* Baixo consumo de memória.
+
+---
+
+## Desvantagens
+
+* Mais sensível a alterações no HTML.
+* Menor robustez para layouts complexos.
+
+---
+
+# Nova Estrutura HTML Identificada
+
+Durante os testes mais recentes foi encontrada uma nova implementação da transcrição.
+
+---
+
+## Estrutura
 
 ```html
 <transcript-segment-view-model>
@@ -597,69 +359,48 @@ Foi identificado o seguinte padrão:
     </div>
 
     <span role="text">
-        They say PHP is dead...
+        Texto da legenda
     </span>
 
 </transcript-segment-view-model>
 ```
 
-Onde:
-
-| Elemento                               | Função           |
-| -------------------------------------- | ---------------- |
-| ytwTranscriptSegmentViewModelTimestamp | Timestamp        |
-| span[role="text"]                      | Texto da legenda |
-
 ---
 
-# Extração com BeautifulSoup
+## Seletores
 
-Instalação:
-
-```bash
-pip install beautifulsoup4 lxml
-```
-
-Processamento:
+Timestamp:
 
 ```python
-segmentos = soup.find_all(
-    "transcript-segment-view-model"
-)
+.ytwTranscriptSegmentViewModelTimestamp
 ```
 
-Extração:
+Texto:
 
 ```python
-timestamp = segmento.find(
-    "div",
-    class_="ytwTranscriptSegmentViewModelTimestamp"
-)
-
-texto = segmento.find(
-    "span",
-    role="text"
-)
+span[role="text"]
 ```
 
 ---
 
-# Normalização do Texto
+# Normalização de Texto
 
-Durante os testes foi identificado que o HTML contém:
+Muitos segmentos possuem:
 
-* quebras de linha;
-* espaços de indentação;
-* tabulações.
+* quebras de linha
+* tabs
+* espaços duplicados
 
-Exemplo bruto:
+Exemplo:
 
 ```text
 PHP is still very much alive,
                                     and learning it...
 ```
 
-Para normalização foi utilizada:
+---
+
+## Solução
 
 ```python
 texto_limpo = " ".join(
@@ -673,57 +414,158 @@ Resultado:
 PHP is still very much alive, and learning it...
 ```
 
-### Benefícios
+---
 
-Remove automaticamente:
+# Melhorias de Desempenho
 
-* múltiplos espaços;
-* quebras de linha;
-* tabulações;
-* caracteres de espaçamento redundantes.
+## Uso de expect_response()
+
+Substituição de:
+
+```python
+page.on("response")
+```
+
+por:
+
+```python
+page.expect_response()
+```
+
+Benefícios:
+
+* Menor consumo de memória.
+* Menor acoplamento.
+* Menor processamento.
 
 ---
 
-# Comparação das Abordagens
+## Uso de domcontentloaded
 
-| Método               | Estabilidade | Complexidade | Dependência Interna |
-| -------------------- | ------------ | ------------ | ------------------- |
-| get_panel            | Média        | Média        | Alta                |
-| get_transcript       | Baixa        | Alta         | Alta                |
-| HTML + BeautifulSoup | Alta         | Baixa        | Baixa               |
+Substituição de:
 
----
+```python
+wait_until="networkidle"
+```
 
-# Lições Aprendidas
+por:
 
-Durante o desenvolvimento foram observados os seguintes comportamentos do YouTube:
+```python
+wait_until="domcontentloaded"
+```
 
-* Alteração frequente dos endpoints internos.
-* Mudança do endpoint utilizado dependendo do vídeo.
-* Diferenças entre vídeos listados e não listados.
-* Diferenças causadas pelo idioma do navegador.
-* Possível interferência de anúncios.
-* Possível interferência de mecanismos anti-automação.
+Benefícios:
 
-Por esse motivo, a estratégia baseada em extração do HTML da transcrição apresentou maior robustez e menor dependência de mudanças internas da plataforma.
+* Menor tempo de carregamento.
+* Menor espera por conexões secundárias.
+* Maior velocidade em lotes grandes.
 
 ---
 
-# Possíveis Evoluções Futuras
+## Execução Headless
 
-* Exportação para Markdown.
-* Exportação para TXT.
-* Exportação para CSV.
-* Agrupamento por curso.
-* Paralelização de vídeos.
-* Processamento de playlists automaticamente.
-* Geração automática de documentação.
-* Integração com IA para sumarização.
-* Indexação vetorial para RAG.
-* Busca semântica sobre as transcrições.
+```python
+headless=True
+```
+
+Benefícios:
+
+* Menor uso de memória.
+* Menor uso de CPU.
+* Execução em servidores.
+* Processamento em lote.
 
 ---
 
-# Resultado
+# Tratamento de Compressão
 
-A versão 11 representa uma evolução significativa da arquitetura original, oferecendo menor acoplamento, melhor desempenho, menor consumo de recursos e maior confiabilidade durante a captura das transcrições do YouTube.
+Algumas respostas chegam compactadas.
+
+Verificação:
+
+```python
+content-encoding
+```
+
+Processamento:
+
+```python
+gzip.decompress()
+```
+
+---
+
+# Arquivos Gerados
+
+## Transcrição Consolidada
+
+```text
+transcricoes.json
+```
+
+---
+
+## Estrutura Atualizada dos Vídeos
+
+```text
+lista_videos_curso_12.json
+```
+
+---
+
+## Exportações Individuais
+
+```text
+transcricao_1_1.json
+transcricao_2_1.json
+```
+
+---
+
+# Tratamento de Erros
+
+O projeto contempla:
+
+* Vídeos sem transcrição.
+* Erros de navegação.
+* Timeouts.
+* JSON inválido.
+* Compressão inválida.
+* Alterações de layout.
+* Falhas de localização de elementos.
+* Endpoints indisponíveis.
+
+---
+
+# Comparação das Estratégias
+
+| Método               | Velocidade | Robustez | Dependência Interna |
+| -------------------- | ---------- | -------- | ------------------- |
+| get_panel            | Alta       | Média    | Alta                |
+| get_transcript       | Média      | Baixa    | Alta                |
+| HTML + BeautifulSoup | Alta       | Alta     | Baixa               |
+| HTML + Regex         | Muito Alta | Média    | Baixa               |
+
+---
+
+# Possíveis Evoluções
+
+* Exportação Markdown
+* Exportação TXT
+* Exportação CSV
+* Processamento automático de playlists
+* Integração com IA
+* Sumarização automática
+* Geração de documentação
+* Base para sistemas RAG
+* Busca semântica
+* Vetorização de conteúdo
+* Geração automática de material de estudo
+
+---
+
+# Conclusão
+
+O projeto evoluiu de uma simples captura de endpoints internos do YouTube para uma plataforma de experimentação e extração de transcrições baseada em múltiplas estratégias.
+
+A documentação das diferentes abordagens permite adaptar rapidamente o sistema a futuras alterações do YouTube, garantindo maior longevidade e flexibilidade para uso em estudos, pesquisa e aplicações de Inteligência Artificial.
