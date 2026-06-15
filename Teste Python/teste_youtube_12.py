@@ -221,7 +221,7 @@ async def main():
                     )
 
                     print(
-                        f"[{legendas[-1]['timestamp']} "
+                        f"[{legendas[-1]['timestamp']}] "
                         f"{legendas[-1]['texto']}"
                     )
 
