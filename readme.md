@@ -39,9 +39,9 @@ Exemplo:
 
 ```python
 (
-    "O que são variáveis",
-    "Apresentação do curso",
-    "https://www.youtube.com/watch?v=sVbEyFZKgqk"
+    "Topico",
+    "Subtopico",
+    "URL Video Youtube"
 )
 ```
 
