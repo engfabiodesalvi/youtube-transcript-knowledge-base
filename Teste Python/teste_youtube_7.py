@@ -1,9 +1,15 @@
+import os
 import asyncio
 import gzip
 import json
+from lista_videos import videos, curso, videos_listados
 from playwright.async_api import async_playwright
+from pathlib import Path
 
-VIDEO_URL = "https://www.youtube.com/watch?v=bPntels5hw8"
+VIDEO_URL = videos_listados[7][2]
+
+# Cria uma pasta local para simular o cache e cookies de um usuário real
+USER_DATA_DIR = os.path.join(os.getcwd(), "perfildoplaywright")
 
 legendas = []
 
@@ -54,24 +60,115 @@ def extrair_transcricao(json_data):
 
     return resultado
 
+def extrair_transcricao_listado(json_data):
+    resultado = []
+
+    try:
+        itens = (
+            json_data["actions"][0]
+            ["updateEngagementPanelAction"]
+            ["content"]
+            ["transcriptRenderer"]
+            ["content"]
+            ["transcriptSearchPanelRenderer"]
+            ["body"]
+            ["transcriptSegmentListRenderer"]
+            ["initialSegments"]
+        )
+
+        for item in itens:
+
+            seg = item["transcriptSegmentRenderer"]            
+
+            timestamp = (
+                seg["startTimeText"]
+                .get("simpleText", "")
+            )
+
+            texto = " ".join(
+                run["text"]
+                for run in seg["snippet"]["runs"]
+            )            
+
+            resultado.append({
+                "timestamp": timestamp,
+                "texto": texto
+            })
+
+    except Exception as e:
+        print("Erro ao extrair:", e)
+
+    return resultado
+
 
 
 async def main():
 
     async with async_playwright() as p:
 
-        browser = await p.chromium.launch(
-            headless=False
+        # browser = await p.chromium.launch(
+        #     headless=False
+        # )
+
+        # page = await browser.new_page()
+        # Em vez de launch + new_context, usamos launch_persistent_context
+        # Isso simula perfeitamente o comportamento do seu Chrome comum
+        context = await p.chromium.launch_persistent_context(
+            user_data_dir=USER_DATA_DIR,
+            headless=False,
+            locale="en-US",
+            #locale="pt-BR",
+            args=[
+                "--disable-blink-features=AutomationControlled", # Esconde que é robô
+                "--start-maximized" # Abre a tela cheia para evitar bugs de layout do YT
+            ],
+            no_viewport=True, # Permite que a tela use o tamanho máximo real
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
 
-        page = await browser.new_page()
+        # Pega a primeira aba padrão do contexto persistente        
+        if context.pages:
+            page = context.pages[0]
+        else:
+            page = await context.new_page()
+ 
+        # Injeta um script oculto para camuflar o Playwright antes da página carregar
+        await page.add_init_script("""
+        Object.defineProperty(
+            navigator,
+            'webdriver',
+            {get: () => undefined}
+        );
+
+        Object.defineProperty(
+            navigator,
+            'languages',
+            {get: () => ['en-US','en']}
+        );
+
+        Object.defineProperty(
+            navigator,
+            'plugins',
+            {get: () => [1,2,3,4,5]}
+        );
+
+        window.chrome = {
+            runtime: {}
+        };
+
+        delete window.__playwright__;
+        delete window.__pwInitScripts;
+        """)    
 
         async def capturar_response(response):
 
-            if "youtubei/v1/get_panel" not in response.url:
+            if ("youtubei/v1/get_panel" not in response.url
+                and
+                "youtubei/v1/get_transcript" not in response.url
+            ):
                 return
 
-            print("\nGET_PANEL REQUEST")
+            print("\nGET_PANEL OR GET_TRANSCRIPT REQUEST")
             print(response.url)
 
             try:
@@ -98,6 +195,30 @@ async def main():
                 # print(texto[:3000])
                 dados = json.loads(texto)
             
+                # define o diretório atual para salvar o arquivo
+                arquivo_saida = (
+                    Path(__file__).parent /
+                    "body_7.json"
+                )                    
+                # Salva body em arquivo                
+                # Forma moderna
+                arquivo_saida.write_text(
+                    json.dumps(
+                        dados,
+                        ensure_ascii=False,
+                        indent=2
+                    ),
+                    encoding="utf-8" 
+                )   
+
+                if "engagementPanelSectionListRenderer" in texto:
+
+                    legendas = extrair_transcricao(dados)
+
+                else:
+
+                    legendas = extrair_transcricao_listado(dados)                
+
                 legendas = extrair_transcricao(dados)
 
                 print(f"\nSegmentos encontrados: {len(legendas)}")
@@ -123,10 +244,10 @@ async def main():
 
         await page.goto(
             VIDEO_URL,
-            wait_until="networkidle"
+            wait_until="commit"
         )
 
-        await page.wait_for_timeout(1000)
+        await page.wait_for_timeout(15_000)
 
         # botoes = await page.locator("button").all()
 
@@ -148,19 +269,37 @@ async def main():
         #         pass
 
 
+        while True:
+
+            ad_showing = await page.evaluate("""
+                document.querySelector('.ad-showing') !== null
+            """)
+
+            if not ad_showing:
+                break
+
+            print("Anúncio em execução...")
+            await asyncio.sleep(1)
+
+        print("Anúncio encerrado")
+
+        await asyncio.sleep(15)
+
         # expandir a descrição
         try:
             # await page.locator("tp-yt-paper-button#expand").first.click()
-            await page.locator("tp-yt-paper-button#expand").filter(has_text="...mais").first.click()
+            await page.locator("tp-yt-paper-button#expand").filter(has_text="...more").first.click()
             print("...MAIS clicado")
         except Exception as e:
             print("Erro ao clicar em ...MAIS", e)
 
-        # mstrar a transcrição
+        await asyncio.sleep(5)            
+
+        # mostrar a transcrição
         try:
             # await page.locator("tp-yt-paper-button#expand").first.click()
             # await page.locator("tp-yt-paper-button#expand").filter(has_text="...mais").first.click()
-            botao_transcricao = page.locator('button[aria-label="Mostrar transcrição"]').first
+            botao_transcricao = page.locator('button[aria-label="Show transcript"]').first
             # print("Encontrados:", await botao_transcricao.count())
 
             await botao_transcricao.wait_for(state="visible", timeout=10000)
@@ -179,8 +318,8 @@ async def main():
 
         # input()
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(10)
 
-        await browser.close()
+        await context.close()
 
 asyncio.run(main())
