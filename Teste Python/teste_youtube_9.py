@@ -2,75 +2,14 @@ import asyncio
 import gzip
 import json
 import subprocess
+from lista_videos import videos, curso, videos_listados
 from playwright.async_api import async_playwright
 
 
 # Comando correto e atualizado para limpar o CMD
 subprocess.run("cls", shell=True)
 
-curso = "Curso Tipos de Variaveis em PHP"
-
 # videos = ["Tópico", "Subtópico", "URL"]
-videos = [
-    (
-        "O que são variáveis",
-        "Apresentação do curso",
-        "https://www.youtube.com/watch?v=sVbEyFZKgqk"
-    ),(
-        "O que são variáveis",
-        "O que são variáveis",
-        "https://www.youtube.com/watch?v=KgUp3FomMoc"
-    ),(
-        "O que são variáveis",
-        "O que são constantes",
-        "https://www.youtube.com/watch?v=HrtS-FkPBqk"
-    ),(
-        "Os principais tipos de dados",        
-        "O que são strings?",
-        "https://www.youtube.com/watch?v=6JtP8xk1U_k"
-    ),(
-        "Os principais tipos de dados",        
-        "Tipos de dados Integers/números",
-        "https://www.youtube.com/watch?v=KH4MmQsCDuw"
-    ),(
-        "Os principais tipos de dados",        
-        "Tipos de dados Datas",
-        "https://www.youtube.com/watch?v=1kO_g_ucYCQ"                        
-    ),(
-        "Os principais tipos de dados",        
-        "Trabalhando com array no PHP",
-        "https://www.youtube.com/watch?v=rjEP_GUdg6o"                        
-    ),(
-        "Funções e escopos",        
-        "Funções Echo e Print",
-        "https://www.youtube.com/watch?v=d3c_OOD4Jzs"                        
-    ),(
-        "Funções e escopos",        
-        "Aprendendo sobre escopo local e global",
-        "https://www.youtube.com/watch?v=97LnEncGx2c"                        
-    ),(
-        "Projeto prático e Revisão",
-        "Apresentação do HTML",
-        "https://www.youtube.com/watch?v=XspbsepnhQ4"                        
-    ),(
-        "Projeto prático e Revisão",        
-        "Revisando Strings",
-        "https://www.youtube.com/watch?v=C8ZFLq24g_A"                        
-    ),(
-        "Projeto prático e Revisão",
-        "Revisando Números",
-        "https://www.youtube.com/watch?v=bPntels5hw8"                        
-    ),(
-        "Projeto prático e Revisão",
-        "Revisando Array",
-        "https://www.youtube.com/watch?v=t8U2FGjjqM8"                        
-    ),(
-        "Projeto prático e Revisão",
-        "Revisando Datas",
-        "https://www.youtube.com/watch?v=gCVlQdbddXY"                        
-    )
-]
-
 
 def extrair_transcricao(json_data):
     resultado = []

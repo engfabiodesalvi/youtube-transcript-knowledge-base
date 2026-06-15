@@ -1,9 +1,10 @@
 import asyncio
 import gzip
 import json
+from lista_videos import videos, curso, videos_listados
 from playwright.async_api import async_playwright
 
-VIDEO_URL = "https://www.youtube.com/watch?v=bPntels5hw8"
+VIDEO_URL = videos[0][2]
 
 
 def extrair_transcricao(json_data):
