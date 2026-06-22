@@ -99,6 +99,8 @@ async def main():
 
         async def processar_video(url):
 
+            if (len(url) == 0):
+                return []
 
             await page.goto(
                 url,
@@ -189,6 +191,8 @@ async def main():
                     print(f"\n[Tópico] {topico['topico']}")
                     print(f"[Subtópico] {subTopico['nome']}")
 
+                    # print(len(subTopico['video_url'])==0)
+                    # legendas = []
                     legendas = await processar_video(subTopico['video_url'])
 
                     if not legendas:
